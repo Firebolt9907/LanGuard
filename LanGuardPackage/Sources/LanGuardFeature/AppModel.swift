@@ -12,6 +12,8 @@ public final class AppModel: ObservableObject {
     public let monitor: NetworkMonitor
     public let engine: ToggleEngine
 
+    private let disconnectMode: DisconnectMode
+
     private var bag = Set<AnyCancellable>()
 
     public init() {
@@ -19,6 +21,8 @@ public final class AppModel: ObservableObject {
         let monitor = NetworkMonitor()
         self.settings = settings
         self.monitor = monitor
+        let disconnectMode = DisconnectMode()
+        self.disconnectMode = disconnectMode
 
         let deps = ToggleEngine.Dependencies(
             activeWiredNames: { [monitor] in
@@ -33,6 +37,11 @@ public final class AppModel: ObservableObject {
                     .filter { settings.wifiEnabled($0) }
             },
             setWiFiPower: { on, names in
+                if !on && settings.keepWiFiOn {
+                    disconnectMode.begin(interfaces: names)
+                    return
+                }
+                disconnectMode.stop()
                 // Only touch interfaces whose power actually differs, and only
                 // notify if something really changed — no redundant banners.
                 let toChange = names.filter { WiFiController.isPoweredOn($0) != on }
@@ -76,6 +85,9 @@ public final class AppModel: ObservableObject {
         engine.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &bag)
+        disconnectMode.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &bag)
     }
 
     /// Called once at launch.
@@ -94,22 +106,47 @@ public final class AppModel: ObservableObject {
             LoginItem.promptForApprovalIfNeeded()
         }
 
+        disconnectMode.recover()
         monitor.onChange = { [weak self] in self?.engine.evaluate() }
         monitor.start()
-        engine.evaluate()
+        if settings.keepWiFiOn { engine.reapply() } else { engine.evaluate() }
+        NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)
+            .sink { [weak self] _ in self?.disconnectMode.stop() }
+            .store(in: &bag)
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)
+            .sink { [weak self] _ in
+                // Reapply after the monitor's wake settling interval, once
+                // Ethernet has recovered and macOS has resumed Wi-Fi.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                    guard let self, self.settings.keepWiFiOn else { return }
+                    self.disconnectMode.stop()
+                    self.engine.reapply()
+                }
+            }
+            .store(in: &bag)
     }
 
     // MARK: - View-facing helpers
 
     public func setAuto(_ on: Bool) {
         settings.autoEnabled = on
+        if !on { disconnectMode.stop() }
         if on { engine.reapply() } else { engine.evaluate() }
     }
 
     /// Call after the user changes which interfaces are selected.
     public func selectionChanged() {
+        disconnectMode.stop()
         engine.reapply()
     }
+
+    public func setKeepWiFiOn(_ on: Bool) {
+        disconnectMode.stop()
+        settings.keepWiFiOn = on
+        engine.reapply()
+    }
+
+    public var disconnectModeError: String? { disconnectMode.errorMessage }
 
     public func linkActive(_ bsd: String) -> Bool { monitor.linkActive(bsd) }
     public func wifiPoweredOn(_ bsd: String) -> Bool { WiFiController.isPoweredOn(bsd) }
@@ -121,6 +158,10 @@ public final class AppModel: ObservableObject {
 
     public var statusLine: String {
         let wired = engine.wiredUp ? engine.activeWired.joined(separator: ", ") : "none"
-        return "Wired: \(wired)  ·  Wi-Fi: \(engine.wifiOn ? "on" : "off")"
+        let targets = InterfaceCatalog.wifi().filter { settings.wifiEnabled($0.bsdName) }
+        let on = targets.contains { wifiPoweredOn($0.bsdName) }
+        let connected = targets.contains { monitor.linkActive($0.bsdName) }
+        let wifi = !on ? "off" : connected ? "connected" : "not connected"
+        return "Wired: \(wired)  ·  Wi-Fi: \(wifi)"
     }
 }
