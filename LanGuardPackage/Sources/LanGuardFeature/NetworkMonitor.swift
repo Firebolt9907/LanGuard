@@ -9,6 +9,9 @@ public final class NetworkMonitor {
     /// Invoked (main thread) whenever the network state changes or the machine wakes.
     public var onChange: () -> Void = {}
 
+    /// Invoked (main thread) after the wake settle interval finishes, before evaluation.
+    public var onWake: () -> Void = {}
+
     private var store: SCDynamicStore?
 
     /// Coalesce bursts of SCDynamicStore callbacks and absorb transient link
@@ -75,6 +78,7 @@ public final class NetworkMonitor {
                 Log.write("wake settle done → resume + evaluate")
                 self.suspended = false
                 self.pendingEvaluate?.cancel()
+                self.onWake()
                 self.onChange()
             }
         }

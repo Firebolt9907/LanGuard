@@ -12,6 +12,8 @@ public final class AppModel: ObservableObject {
     public let monitor: NetworkMonitor
     public let engine: ToggleEngine
 
+    private let disconnectMode: DisconnectMode
+
     private var bag = Set<AnyCancellable>()
 
     public init() {
@@ -19,6 +21,8 @@ public final class AppModel: ObservableObject {
         let monitor = NetworkMonitor()
         self.settings = settings
         self.monitor = monitor
+        let disconnectMode = DisconnectMode()
+        self.disconnectMode = disconnectMode
 
         let deps = ToggleEngine.Dependencies(
             activeWiredNames: { [monitor] in
@@ -33,17 +37,41 @@ public final class AppModel: ObservableObject {
                     .filter { settings.wifiEnabled($0) }
             },
             setWiFiPower: { on, names in
+                if !on && settings.keepWiFiOn {
+                    do {
+                        let changed = try disconnectMode.begin(interfaces: names)
+                        Log.write("disconnectMode.begin succeeded for \(names)")
+                        guard settings.notificationsEnabled && changed else { return }
+                        let trigger = InterfaceCatalog.wired()
+                            .first { settings.wiredEnabled($0) && monitor.linkActive($0.bsdName) }
+                        let label = trigger?.displayName ?? "Wired LAN"
+                        Notifier.post(title: "Wi-Fi disconnected",
+                                      body: "\(label) connected — Wi-Fi disconnected (AirDrop on).")
+                        return
+                    } catch {
+                        Log.write("disconnectMode.begin failed: \(error.localizedDescription) — falling back to power off")
+                        // Fall through to power off fallback below
+                    }
+                }
+                let wasDisconnectActive = disconnectMode.isActive
+                disconnectMode.stop()
                 // Only touch interfaces whose power actually differs, and only
                 // notify if something really changed — no redundant banners.
                 let toChange = names.filter { WiFiController.isPoweredOn($0) != on }
                 Log.write("setWiFiPower(on: \(on)) targets=\(names) changing=\(toChange)")
-                guard !toChange.isEmpty else { return }
-                WiFiController.setPower(on, interfaces: toChange)
+                if !toChange.isEmpty {
+                    WiFiController.setPower(on, interfaces: toChange)
+                }
                 guard settings.notificationsEnabled else { return }
                 if on {
-                    Notifier.post(title: "Wi-Fi on",
-                                  body: "Wired LAN disconnected — Wi-Fi turned back on.")
-                } else {
+                    if !toChange.isEmpty {
+                        Notifier.post(title: "Wi-Fi on",
+                                      body: "Wired LAN disconnected — Wi-Fi turned back on.")
+                    } else if wasDisconnectActive {
+                        Notifier.post(title: "Wi-Fi on",
+                                      body: "Wired LAN disconnected — Wi-Fi auto-join restored.")
+                    }
+                } else if !toChange.isEmpty {
                     let trigger = InterfaceCatalog.wired()
                         .first { settings.wiredEnabled($0) && monitor.linkActive($0.bsdName) }
                     let label = trigger?.displayName ?? "Wired LAN"
@@ -76,6 +104,9 @@ public final class AppModel: ObservableObject {
         engine.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &bag)
+        disconnectMode.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &bag)
     }
 
     /// Called once at launch.
@@ -94,22 +125,42 @@ public final class AppModel: ObservableObject {
             LoginItem.promptForApprovalIfNeeded()
         }
 
+        disconnectMode.recover()
+        monitor.onWake = { [weak self] in
+            guard let self, self.settings.keepWiFiOn else { return }
+            Log.write("onWake: re-enforcing disconnect mode after wake settle")
+            self.disconnectMode.stop()
+            self.engine.reapply()
+        }
         monitor.onChange = { [weak self] in self?.engine.evaluate() }
         monitor.start()
-        engine.evaluate()
+        if settings.keepWiFiOn { engine.reapply() } else { engine.evaluate() }
+        NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)
+            .sink { [weak self] _ in self?.disconnectMode.stop() }
+            .store(in: &bag)
     }
 
     // MARK: - View-facing helpers
 
     public func setAuto(_ on: Bool) {
         settings.autoEnabled = on
+        if !on { disconnectMode.stop() }
         if on { engine.reapply() } else { engine.evaluate() }
     }
 
     /// Call after the user changes which interfaces are selected.
     public func selectionChanged() {
+        disconnectMode.stop()
         engine.reapply()
     }
+
+    public func setKeepWiFiOn(_ on: Bool) {
+        disconnectMode.stop()
+        settings.keepWiFiOn = on
+        engine.reapply()
+    }
+
+    public var disconnectModeError: String? { disconnectMode.errorMessage }
 
     public func linkActive(_ bsd: String) -> Bool { monitor.linkActive(bsd) }
     public func wifiPoweredOn(_ bsd: String) -> Bool { WiFiController.isPoweredOn(bsd) }
@@ -121,6 +172,10 @@ public final class AppModel: ObservableObject {
 
     public var statusLine: String {
         let wired = engine.wiredUp ? engine.activeWired.joined(separator: ", ") : "none"
-        return "Wired: \(wired)  ·  Wi-Fi: \(engine.wifiOn ? "on" : "off")"
+        let targets = InterfaceCatalog.wifi().filter { settings.wifiEnabled($0.bsdName) }
+        let on = targets.contains { wifiPoweredOn($0.bsdName) }
+        let connected = targets.contains { monitor.linkActive($0.bsdName) }
+        let wifi = !on ? "off" : connected ? "connected" : "not connected"
+        return "Wired: \(wired)  ·  Wi-Fi: \(wifi)"
     }
 }

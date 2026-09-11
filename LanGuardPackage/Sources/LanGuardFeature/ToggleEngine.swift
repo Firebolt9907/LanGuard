@@ -21,7 +21,8 @@ public final class ToggleEngine: ObservableObject {
         public var activeWiredNames: () -> [String]
         /// Enabled Wi-Fi BSD names to control.
         public var wifiTargets: () -> [String]
-        /// Apply power to the given Wi-Fi interfaces.
+        /// Make Wi-Fi available/unavailable. The app maps unavailable to either
+        /// power off or disconnect with a temporary auto-join pause.
         public var setWiFiPower: (_ on: Bool, _ interfaces: [String]) -> Void
         /// Whether any controlled Wi-Fi is currently powered on (for status).
         public var anyWiFiOn: () -> Bool

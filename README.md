@@ -6,6 +6,23 @@
 
 ### Wi-Fi off when you're wired. Back on when you're not.
 
+**Want to keep AirDrop available over Ethernet?** Enable **Settings → Keep Wi-Fi
+on for AirDrop and AirPlay** (off by default). Selected Wi-Fi adapters disconnect from their
+networks but keep their radios powered. Keep Bluetooth enabled for AirDrop too.
+
+This option currently supports the **primary Wi-Fi adapter**, using an
+undocumented CoreWiFi API checked for availability at runtime.
+It does not edit saved networks, passwords, or per-network Auto-Join preferences.
+LanGuard releases its pause when Ethernet disconnects, automation is paused, the
+option or adapter selection changes, or the app quits normally. After a crash or
+force quit, **reopen LanGuard** to recover its saved auto-join state. Existing
+macOS pauses are preserved. Unsupported systems or failed operations show an error in Settings and
+the menu; the app falls back to powering Wi-Fi off.
+
+Disconnect mode reapplies after wake. Manual connections between wired transitions
+remain possible. Power-on/disconnected state and restoring auto-join were tested
+on macOS 26.6.2. An actual AirDrop transfer still needs verification with a peer.
+
 A tiny native macOS menu-bar app that turns **Wi-Fi off the moment a wired LAN link goes up**,
 and back **on when you unplug** — edge-based, wake-aware, per-interface, and no admin rights required.
 

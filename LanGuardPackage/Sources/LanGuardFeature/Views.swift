@@ -11,6 +11,9 @@ public struct MenuContent: View {
 
     public var body: some View {
         Text(model.statusLine)
+        if let error = model.disconnectModeError {
+            Text("⚠️ \(error)")
+        }
 
         Divider()
 
@@ -55,6 +58,20 @@ public struct ConfigView: View {
             ))
             .font(.headline)
 
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle("Keep Wi-Fi on for AirDrop and AirPlay", isOn: Binding(
+                    get: { model.settings.keepWiFiOn },
+                    set: { model.setKeepWiFiOn($0) }
+                ))
+                Text("Keeps the primary Wi-Fi radio on but disconnected while wired. Restores auto-join when Ethernet disconnects, automation is paused, or LanGuard quits.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("Keep Bluetooth on for AirDrop. If LanGuard force quits while wired, reopen it to restore auto-join.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if let error = model.disconnectModeError {
+                    Text(error).font(.caption).foregroundStyle(.red)
+                }
+            }
+
             VStack(alignment: .leading, spacing: 2) {
                 Toggle("Start at login", isOn: $loginOn)
                     .onChange(of: loginOn) { _, newValue in
@@ -86,7 +103,7 @@ public struct ConfigView: View {
 
             section(
                 title: "Wired triggers",
-                subtitle: "Wi-Fi turns off when any checked wired link is active. Virtual adapters (bridge/VPN/VM) are off by default.",
+                subtitle: "The selected Wi-Fi behavior applies when any checked wired link is active. Virtual adapters (bridge/VPN/VM) are off by default.",
                 interfaces: wired,
                 isActive: { model.linkActive($0.bsdName) },
                 isOn: { model.settings.wiredEnabled($0) },
@@ -100,7 +117,7 @@ public struct ConfigView: View {
 
             section(
                 title: "Controlled Wi-Fi",
-                subtitle: "These adapters get switched on/off.",
+                subtitle: model.settings.keepWiFiOn ? "These adapters disconnect but keep their radios on." : "These adapters get switched on/off.",
                 interfaces: wifi,
                 isActive: { model.wifiPoweredOn($0.bsdName) },
                 isOn: { model.settings.wifiEnabled($0.bsdName) },
