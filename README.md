@@ -2,29 +2,17 @@
 
 <img src="docs/social-preview.png" alt="LanGuard — Wi-Fi off when you're wired, back on when you're not. A free, open-source macOS menu-bar app." width="760">
 
-# LanGuard
+# LanGuard - AirDrop & AirPlay fork
 
-### Wi-Fi off when you're wired. Back on when you're not.
+### Prefer Ethernet. Keep Wi-Fi available for AirDrop and AirPlay.
 
-**Want to keep AirDrop available over Ethernet?** Enable **Settings → Keep Wi-Fi
-on for AirDrop and AirPlay** (off by default). Selected Wi-Fi adapters disconnect from their
-networks but keep their radios powered. Keep Bluetooth enabled for AirDrop too.
+A free, open-source macOS menu-bar app based on
+[the original LanGuard by Roy Padina](https://github.com/roypadina/LanGuard/).
 
-This option currently supports the **primary Wi-Fi adapter**, using an
-undocumented CoreWiFi API checked for availability at runtime.
-It does not edit saved networks, passwords, or per-network Auto-Join preferences.
-LanGuard releases its pause when Ethernet disconnects, automation is paused, the
-option or adapter selection changes, or the app quits normally. After a crash or
-force quit, **reopen LanGuard** to recover its saved auto-join state. Existing
-macOS pauses are preserved. Unsupported systems or failed operations show an error in Settings and
-the menu; the app falls back to powering Wi-Fi off.
-
-Disconnect mode reapplies after wake. Manual connections between wired transitions
-remain possible. Power-on/disconnected state and restoring auto-join were tested
-on macOS 26.6.2. An actual AirDrop transfer still needs verification with a peer.
-
-A tiny native macOS menu-bar app that turns **Wi-Fi off the moment a wired LAN link goes up**,
-and back **on when you unplug** — edge-based, wake-aware, per-interface, and no admin rights required.
+This fork adds an optional mode that disconnects Wi-Fi from its network while
+keeping the radio on, so it remains available for AirDrop and AirPlay.
+Enable **Settings → Keep Wi-Fi on for AirDrop and AirPlay** to use it.
+The original Wi-Fi power-off behavior remains the default.
 
 [![macOS](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-5-F05138?logo=swift&logoColor=white)](https://swift.org)
@@ -47,6 +35,7 @@ and back **on when you unplug** — edge-based, wake-aware, per-interface, and n
 
 ## Table of Contents
 
+- [Why this fork?](#why-this-fork)
 - [Why](#why)
 - [Features](#features)
 - [How LanGuard compares](#how-languard-compares)
@@ -60,6 +49,39 @@ and back **on when you unplug** — edge-based, wake-aware, per-interface, and n
 - [Contributing](#contributing)
 - [Support](#support)
 - [License](#license)
+
+## Why this fork?
+
+The original LanGuard turns Wi-Fi off when Ethernet connects and back on when it
+disconnects. This fork adds an alternative for people who want to use Ethernet
+while keeping the Wi-Fi radio available for AirDrop and AirPlay:
+
+- **Ethernet connects:** Wi-Fi disconnects from its network and automatic joining
+  is paused, but the radio stays on.
+- **Ethernet disconnects:** LanGuard releases its auto-join pause, allowing Wi-Fi
+  to reconnect automatically.
+- **Saved networks stay intact:** passwords and per-network Auto-Join preferences
+  are unchanged. Existing macOS auto-join pauses are preserved.
+
+The option is **off by default** and currently supports only the **primary Wi-Fi
+adapter**. Keep Bluetooth enabled for AirDrop too. Manual Wi-Fi connections remain
+possible between wired transitions, and the mode is reapplied after wake.
+
+> [!WARNING]
+> This mode relies on an **undocumented, private macOS CoreWiFi API**, so it may
+> stop working after a macOS update. If the API is unavailable or an operation
+> fails, LanGuard falls back to powering Wi-Fi off and reports an error.
+>
+> **Before uninstalling, disconnect Ethernet while LanGuard is still running**
+> and check that Wi-Fi reconnects. Then quit the app normally before removing it
+> or deleting its settings. After a crash or force quit, reopen LanGuard with
+> Ethernet disconnected so it can restore auto-join. This pause is separate from
+> the per-network Auto-Join setting.
+
+LanGuard also releases its pause when automation is paused, this option or the
+adapter selection changes, or the app quits normally. Power-on/disconnected state, auto-join restoration, and AirDrop/AirPlay were tested on macOS 26.6.2.
+
+# Original README.md:
 
 ## Why
 
@@ -108,6 +130,9 @@ manually flip Wi-Fi back on while docked, it stays on until you next unplug.
 
 ### Homebrew
 
+This installs the **original project**, not this fork. To use this fork’s
+AirDrop and AirPlay mode, build from source below.
+
 ```bash
 brew install --cask roypadina/tap/languard
 ```
@@ -122,7 +147,7 @@ brew install --cask roypadina/tap/languard
 ### Build from source
 
 ```bash
-git clone https://github.com/roypadina/LanGuard.git
+git clone https://github.com/Firebolt9907/LanGuard.git
 cd LanGuard
 xcodebuild -workspace LanGuard.xcworkspace -scheme LanGuard -configuration Release build
 cp -R ~/Library/Developer/Xcode/DerivedData/LanGuard-*/Build/Products/Release/LanGuard.app /Applications/
@@ -139,6 +164,7 @@ Click the menu-bar icon for status, the **Auto-toggle** master switch, and **Set
 In **Settings** you can:
 - choose which **wired adapters** count as triggers (real adapters on by default, virtual off),
 - choose which **Wi-Fi adapters** are controlled,
+- enable **Keep Wi-Fi on for AirDrop and AirPlay** (see [Why this fork?](#why-this-fork)),
 - toggle **notifications**,
 - pick the **menu-bar icon style** (icon / icon + label / label),
 - enable **Start at login**.
@@ -212,6 +238,15 @@ It's not notarized yet — right-click the app → Open, or run the `xattr` comm
 [Install](#install). See [Is it safe?](#is-it-safe).
 
 ## Uninstall
+
+If you used **Keep Wi-Fi on for AirDrop and AirPlay**:
+
+1. Disconnect Ethernet while LanGuard is running. If the app crashed or was force
+   quit, reopen it with Ethernet disconnected.
+2. Check that Wi-Fi reconnects and resolve any auto-join error shown in Settings
+   before continuing.
+3. Quit LanGuard normally, then remove the app and optionally delete its settings.
+
 
 ```bash
 brew uninstall --cask languard          # if installed via Homebrew
