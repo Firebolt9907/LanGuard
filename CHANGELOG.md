@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Keep Wi-Fi on for AirDrop and AirPlay (opt-in).** When enabled, LanGuard keeps the
+  primary Wi-Fi radio powered while wired, disassociating from access points and pausing
+  auto-join via CoreWiFi instead of powering the adapter off. Falls back to powering Wi-Fi
+  off if unsupported or multiple adapters are selected. Restores auto-join when Ethernet
+  disconnects, automation is paused, or the app quits.
+
 ## [1.0.1] - 2026-06-09
 
 ### Fixed

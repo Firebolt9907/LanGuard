@@ -126,4 +126,30 @@ final class AutoJoinControlTests: XCTestCase {
         settings.keepWiFiOn = true
         XCTAssertTrue(AppSettings(defaults: defaults).keepWiFiOn)
     }
+
+    func testDisconnectModeStopClearsPauseEvenOnReleaseError() throws {
+        let state = State()
+        let mode = DisconnectMode(makeControl: { _ in state.control() })
+        // Begin sets up pause
+        try mode.begin(interfaces: ["en0"])
+        XCTAssertTrue(mode.isActive)
+
+        // Fail release on stop
+        state.fail = true
+        mode.stop()
+        // Must clear pause despite release error (no leak)
+        XCTAssertFalse(mode.isActive)
+        XCTAssertNotNil(mode.errorMessage)
+    }
+
+    func testDisconnectModeBeginRethrowsErrorForFallback() {
+        let mode = DisconnectMode(makeControl: { _ in
+            throw AutoJoinControl.ControlError.interfaceUnsupported
+        })
+        XCTAssertThrowsError(try mode.begin(interfaces: ["en0", "en1"])) { error in
+            XCTAssertEqual(error as? AutoJoinControl.ControlError, .interfaceUnsupported)
+        }
+        XCTAssertFalse(mode.isActive)
+        XCTAssertNotNil(mode.errorMessage)
+    }
 }

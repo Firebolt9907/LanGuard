@@ -115,7 +115,7 @@ final class AutoJoinControl {
         var errorDescription: String? {
             switch self {
             case .unsupported: return "This macOS version does not support Wi-Fi auto-join control."
-            case .interfaceUnsupported: return "AirDrop mode currently supports only the primary Wi-Fi adapter. Select only that adapter in Controlled Wi-Fi."
+            case .interfaceUnsupported: return "AirDrop mode supports only the primary Wi-Fi adapter. Powering Wi-Fi off as fallback."
             case .failed: return "macOS could not change Wi-Fi auto-join."
             }
         }

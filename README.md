@@ -17,7 +17,7 @@ LanGuard releases its pause when Ethernet disconnects, automation is paused, the
 option or adapter selection changes, or the app quits normally. After a crash or
 force quit, **reopen LanGuard** to recover its saved auto-join state. Existing
 macOS pauses are preserved. Unsupported systems or failed operations show an error in Settings and
-the menu; the app does not fall back to powering Wi-Fi off.
+the menu; the app falls back to powering Wi-Fi off.
 
 Disconnect mode reapplies after wake. Manual connections between wired transitions
 remain possible. Power-on/disconnected state and restoring auto-join were tested

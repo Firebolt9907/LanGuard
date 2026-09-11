@@ -38,21 +38,40 @@ public final class AppModel: ObservableObject {
             },
             setWiFiPower: { on, names in
                 if !on && settings.keepWiFiOn {
-                    disconnectMode.begin(interfaces: names)
-                    return
+                    do {
+                        let changed = try disconnectMode.begin(interfaces: names)
+                        Log.write("disconnectMode.begin succeeded for \(names)")
+                        guard settings.notificationsEnabled && changed else { return }
+                        let trigger = InterfaceCatalog.wired()
+                            .first { settings.wiredEnabled($0) && monitor.linkActive($0.bsdName) }
+                        let label = trigger?.displayName ?? "Wired LAN"
+                        Notifier.post(title: "Wi-Fi disconnected",
+                                      body: "\(label) connected — Wi-Fi disconnected (AirDrop on).")
+                        return
+                    } catch {
+                        Log.write("disconnectMode.begin failed: \(error.localizedDescription) — falling back to power off")
+                        // Fall through to power off fallback below
+                    }
                 }
+                let wasDisconnectActive = disconnectMode.isActive
                 disconnectMode.stop()
                 // Only touch interfaces whose power actually differs, and only
                 // notify if something really changed — no redundant banners.
                 let toChange = names.filter { WiFiController.isPoweredOn($0) != on }
                 Log.write("setWiFiPower(on: \(on)) targets=\(names) changing=\(toChange)")
-                guard !toChange.isEmpty else { return }
-                WiFiController.setPower(on, interfaces: toChange)
+                if !toChange.isEmpty {
+                    WiFiController.setPower(on, interfaces: toChange)
+                }
                 guard settings.notificationsEnabled else { return }
                 if on {
-                    Notifier.post(title: "Wi-Fi on",
-                                  body: "Wired LAN disconnected — Wi-Fi turned back on.")
-                } else {
+                    if !toChange.isEmpty {
+                        Notifier.post(title: "Wi-Fi on",
+                                      body: "Wired LAN disconnected — Wi-Fi turned back on.")
+                    } else if wasDisconnectActive {
+                        Notifier.post(title: "Wi-Fi on",
+                                      body: "Wired LAN disconnected — Wi-Fi auto-join restored.")
+                    }
+                } else if !toChange.isEmpty {
                     let trigger = InterfaceCatalog.wired()
                         .first { settings.wiredEnabled($0) && monitor.linkActive($0.bsdName) }
                     let label = trigger?.displayName ?? "Wired LAN"
@@ -107,22 +126,17 @@ public final class AppModel: ObservableObject {
         }
 
         disconnectMode.recover()
+        monitor.onWake = { [weak self] in
+            guard let self, self.settings.keepWiFiOn else { return }
+            Log.write("onWake: re-enforcing disconnect mode after wake settle")
+            self.disconnectMode.stop()
+            self.engine.reapply()
+        }
         monitor.onChange = { [weak self] in self?.engine.evaluate() }
         monitor.start()
         if settings.keepWiFiOn { engine.reapply() } else { engine.evaluate() }
         NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)
             .sink { [weak self] _ in self?.disconnectMode.stop() }
-            .store(in: &bag)
-        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)
-            .sink { [weak self] _ in
-                // Reapply after the monitor's wake settling interval, once
-                // Ethernet has recovered and macOS has resumed Wi-Fi.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                    guard let self, self.settings.keepWiFiOn else { return }
-                    self.disconnectMode.stop()
-                    self.engine.reapply()
-                }
-            }
             .store(in: &bag)
     }
 

@@ -12,7 +12,7 @@ public final class AppSettings: ObservableObject {
     private let defaults: UserDefaults
 
     @Published public var keepWiFiOn: Bool {
-        didSet { defaults.set(keepWiFiOn, forKey: "keepWiFiOn") }
+        didSet { defaults.set(keepWiFiOn, forKey: Keys.keepWiFiOn) }
     }
 
     @Published public var autoEnabled: Bool {
@@ -50,7 +50,7 @@ public final class AppSettings: ObservableObject {
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        self.keepWiFiOn = defaults.bool(forKey: "keepWiFiOn")
+        self.keepWiFiOn = defaults.bool(forKey: Keys.keepWiFiOn)
         self.autoEnabled = (defaults.object(forKey: Keys.autoEnabled) as? Bool) ?? true
         self.notificationsEnabled = (defaults.object(forKey: Keys.notificationsEnabled) as? Bool) ?? true
         self.menuIconStyle = MenuIconStyle(rawValue: defaults.string(forKey: Keys.menuIconStyle) ?? "") ?? .symbol
@@ -81,6 +81,7 @@ public final class AppSettings: ObservableObject {
     }
 
     private enum Keys {
+        static let keepWiFiOn = "keepWiFiOn"
         static let autoEnabled = "autoEnabled"
         static let notificationsEnabled = "notificationsEnabled"
         static let menuIconStyle = "menuIconStyle"

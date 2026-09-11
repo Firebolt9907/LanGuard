@@ -4,10 +4,5 @@
 
 #include "Shared.xcconfig"
 
-// Optimize for runtime performance and remove unused code from the shipped app.
-SWIFT_OPTIMIZATION_LEVEL = -O
-SWIFT_COMPILATION_MODE = wholemodule
-GCC_OPTIMIZATION_LEVEL = s
-DEAD_CODE_STRIPPING = YES
-ENABLE_TESTABILITY = NO
-DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+// No additional release-specific overrides needed
+// All release settings use Xcode project defaults

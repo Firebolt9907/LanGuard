@@ -30,8 +30,7 @@ silicon macOS versions before release.
    confirm the correct state and successful auto-join when undocked.
 7. Manually connect while wired. Confirm LanGuard allows the manual connection
    until the next wired transition, explicit reapply, or wake.
-8. Select a secondary Wi-Fi adapter. Verify the app reports that only the primary
-   Wi-Fi adapter is currently supported and leaves secondary adapters untouched.
+8. Select a secondary or multiple Wi-Fi adapters. Verify the app reports that only the primary
+   Wi-Fi adapter is supported and falls back to powering Wi-Fi off.
 9. Check errors on systems that reject the temporary pause API. Confirm an error
-   is visible and LanGuard does not report a successful disconnection or power
-   Wi-Fi off as a fallback.
+   is visible in Settings and LanGuard falls back to powering Wi-Fi off.

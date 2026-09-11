@@ -8,13 +8,14 @@ on first launch).
 - `LanGuard/` — app target (`LanGuardApp.swift`): `MenuBarExtra` + Settings `Window`, `AppDelegate` starts `AppModel`.
 - `LanGuardPackage/Sources/LanGuardFeature/` — all logic (modular, unit-tested):
   - `InterfaceCatalog` — enumerate + classify Ethernet/Wi-Fi via SystemConfiguration. `isVirtual(bsdName:displayName:)` flags bridge/VPN/VM/tunnel adapters (pure, tested).
-  - `NetworkMonitor` — `SCDynamicStore` callbacks (link/IPv4) + `NSWorkspace` sleep/wake; per-interface link reads (SC `kSCPropNetLinkActive`, ifconfig fallback). **Flap guard:** ignores link changes while asleep (`willSleepNotification` → `suspended`), waits a settle interval after `didWakeNotification` before evaluating once, and debounces callback bursts/brief flaps (1.5s). Stops a docked Mac's Ethernet dropping on sleep + returning on wake from looking like a real unplug→replug.
-  - `WiFiController` — CoreWLAN `setPower` / `powerOn` (no sudo, no shell).
-  - `Notifier` — `UNUserNotificationCenter` wrapper; banners on Wi-Fi toggle (needs OS permission, requested on launch).
+  - `NetworkMonitor` — `SCDynamicStore` callbacks (link/IPv4) + `NSWorkspace` sleep/wake; per-interface link reads (SC `kSCPropNetLinkActive`, ifconfig fallback). **Flap guard:** ignores link changes while asleep (`willSleepNotification` → `suspended`), waits a settle interval after `didWakeNotification` before invoking `onWake` and evaluating once, and debounces callback bursts/brief flaps (1.5s). Stops a docked Mac's Ethernet dropping on sleep + returning on wake from looking like a real unplug→replug.
+  - `WiFiController` — CoreWLAN `setPower` / `powerOn` / `disconnect` (no sudo, no shell).
+  - `DisconnectMode` / `AutoJoinControl` — opt-in mode keeping Wi-Fi radio on for AirDrop/AirPlay while wired. Pauses primary Wi-Fi auto-join via CoreWiFi and disassociates instead of powering off. Restores auto-join when Ethernet disconnects, automation pauses, or app quits. Self-heals after crash recovery via UserDefaults journal. Gracefully falls back to powering Wi-Fi off if unsupported or multiple Wi-Fi adapters are selected.
+  - `Notifier` — `UNUserNotificationCenter` wrapper; banners on Wi-Fi toggle/disconnect (needs OS permission, requested on launch).
   - `Log` — opt-in file logger. When `debugLoggingEnabled` (Settings → Debug) is on, appends timestamped events to `~/Library/Logs/LanGuard/languard.log` (rotates at ~1MB, one backup). `Log.write` is a no-op while off. `revealInFinder()` / `clear()` back the Settings buttons. Instrumented across start / evaluate / edges / setWiFiPower / sleep-wake so users can capture + send a log.
   - `MenuIcon` — `MenuState` (lan/wifi/paused, pure mapping) + `MenuIconStyle` (icon / icon+label / label) + `MenuBarLabel` view used as the MenuBarExtra label.
   - `ToggleEngine` — **edge-based** decision logic, dependencies injected → testable.
-  - `AppSettings` — UserDefaults. Physical wired + Wi-Fi = **opt-out** (`disabledWired`/`disabledWiFi`); virtual wired = **opt-in** (`enabledVirtual`, off by default). `notificationsEnabled`, `menuIconStyle`.
+  - `AppSettings` — UserDefaults. Physical wired + Wi-Fi = **opt-out** (`disabledWired`/`disabledWiFi`); virtual wired = **opt-in** (`enabledVirtual`, off by default). `keepWiFiOn`, `notificationsEnabled`, `menuIconStyle`.
   - `LoginItem` / `LegacyCleanup` — SMAppService login item (self-healing, see below); removes legacy LaunchAgent.
   - `AppModel` — wires everything; singleton `AppModel.shared`. `setWiFiPower` is idempotent — only toggles interfaces whose power actually differs and only posts the banner when something really changed.
   - `Views` — `MenuContent` (menu), `ConfigView` (settings window; virtual adapters get a "virtual" badge).

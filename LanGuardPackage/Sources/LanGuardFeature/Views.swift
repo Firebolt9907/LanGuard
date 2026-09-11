@@ -12,7 +12,7 @@ public struct MenuContent: View {
     public var body: some View {
         Text(model.statusLine)
         if let error = model.disconnectModeError {
-            Text(error).foregroundStyle(.red)
+            Text("⚠️ \(error)")
         }
 
         Divider()
@@ -65,7 +65,7 @@ public struct ConfigView: View {
                 ))
                 Text("Keeps the primary Wi-Fi radio on but disconnected while wired. Restores auto-join when Ethernet disconnects, automation is paused, or LanGuard quits.")
                     .font(.caption).foregroundStyle(.secondary)
-                Text("Keep Bluetooth on for AirDrop. If you force quit LanGuard, reopen it to restore auto-join. Uses a macOS private API.")
+                Text("Keep Bluetooth on for AirDrop. If LanGuard force quits while wired, reopen it to restore auto-join.")
                     .font(.caption).foregroundStyle(.secondary)
                 if let error = model.disconnectModeError {
                     Text(error).font(.caption).foregroundStyle(.red)

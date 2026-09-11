@@ -4,47 +4,40 @@ import Combine
 /// Owns the primary Wi-Fi adapter's auto-join pause for the opt-in mode.
 final class DisconnectMode: ObservableObject {
     @Published private(set) var errorMessage: String?
-    private var pause: AutoJoinControl?
-    private var timer: Timer?
+    private(set) var pause: AutoJoinControl?
     private var interfaces: [String] = []
+    private let makeControl: ([String]) throws -> AutoJoinControl
 
-    func begin(interfaces: [String]) {
-        guard !interfaces.isEmpty else { stop(); return }
+    var isActive: Bool { pause != nil }
+
+    init(makeControl: @escaping ([String]) throws -> AutoJoinControl = { try AutoJoinControl.system(interfaces: $0) }) {
+        self.makeControl = makeControl
+    }
+
+    @discardableResult
+    func begin(interfaces: [String]) throws -> Bool {
+        guard !interfaces.isEmpty else { stop(); return false }
+        let wasActive = isActive
         self.interfaces = interfaces
         do {
-            if pause == nil { pause = try AutoJoinControl.system(interfaces: interfaces) }
-            try WiFiController.disconnect(interfaces: interfaces) { _ = try pause?.renew() }
-            errorMessage = nil
-            if timer == nil {
-                let timer = Timer(timeInterval: 15, repeats: true) { [weak self] _ in self?.renew() }
-                RunLoop.main.add(timer, forMode: .common)
-                self.timer = timer
+            if pause == nil { pause = try makeControl(interfaces) }
+            try WiFiController.disconnect(interfaces: interfaces) { [weak self] in
+                _ = try self?.pause?.renew()
             }
+            errorMessage = nil
+            return !wasActive
         } catch {
             stop()
             report(error)
+            throw error
         }
-    }
-
-    private func renew() {
-        do {
-            if try pause?.renew() == true {
-                // Reapply after macOS resets the pause, for example at wake.
-                // Normal checks leave manual connections alone.
-                try WiFiController.disconnect(interfaces: interfaces) { _ = try pause?.renew() }
-            }
-            errorMessage = nil
-        }
-        catch { report(error) }
     }
 
     func stop() {
-        timer?.invalidate()
-        timer = nil
         interfaces = []
+        defer { pause = nil }
         do {
             try pause?.release()
-            pause = nil
             errorMessage = nil
         } catch { report(error) }
     }
